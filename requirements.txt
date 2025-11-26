@@ -1,0 +1,25 @@
+# UI Framework
+streamlit
+
+# LLM & Orchestration
+langchain
+langchain-core
+langchain-openai
+langchain-google-genai
+langchain-community
+langgraph
+
+# Vector DB
+chromadb
+langchain-chroma
+
+# AI & Data
+transformers  # KoBERT용
+torch         # PyTorch (CPU 버전 기본, GPU 필요시 별도 설치)
+sentence-transformers # 임베딩용
+pandas
+numpy
+
+# Utils
+python-dotenv
+watchdog
