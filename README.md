@@ -55,7 +55,7 @@
 
 ## 🏗 시스템 아키텍처 (Workflow)
 
-```mermaid
+```
 graph LR
     A[사용자 리뷰 입력] --> B{감정 분석 (KoBERT)};
     B -->|긍정| C[감사 템플릿 검색];
