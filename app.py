@@ -5,6 +5,13 @@ from src.ui.cards import render_review_cards_tab
 from src.ui.dashboard import render_dashboard_tab
 from src.ui.training import render_training_tab
 from src.ui.menu import render_menu_tab
+import sys
+
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
 
 # 초기 설정
 st.set_page_config(**get_page_config())
