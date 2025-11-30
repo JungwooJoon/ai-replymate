@@ -209,3 +209,4 @@ __marimo__/
 # Project set
 .DS_Store
 chroma_db/
+data/saved_reviews.json
