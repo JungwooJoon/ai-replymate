@@ -54,6 +54,10 @@ class ReplyMateRAG:
         print(f"[SUCCESS] ChromaDB initialized at: {self.persist_dir}")
 
     def load_db(self):
+        if not Path(self.persist_dir).exists() or not any(Path(self.persist_dir).iterdir()):
+            print("[INFO] DB not found on server. Initializing automatically...")
+            self.init_db()
+
         self.vector_store = Chroma(
             persist_directory=self.persist_dir,
             embedding_function=self.embeddings,
