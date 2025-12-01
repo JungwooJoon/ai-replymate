@@ -60,12 +60,10 @@ class ReplyMateRAG:
             collection_name="reply_data"
         )
 
-    # [수정] tone 인자 추가 및 필터링 로직 강화
     def search_templates(self, sentiment: str, category: str = None, tone: str = None, k=2):
         if not self.vector_store:
             self.load_db()
 
-        # [수정] None 값 필터링을 위한 방어 로직 추가
         conditions = []
 
         # 1. sentiment는 필수 값이므로 항상 추가 (None이면 에러 발생 가능성 있으므로 체크)
@@ -103,7 +101,7 @@ class ReplyMateRAG:
             return []
 
     def search_menu(self, query: str, k=1):
-        # [FIX] 유효성 검사 추가 (None 또는 빈 문자열 방지)
+        # 유효성 검사 추가 (None 또는 빈 문자열 방지)
         if not query or not isinstance(query, str):
             print(f"[WARN] Invalid query for menu search: {query}. Skipping.")
             return []
