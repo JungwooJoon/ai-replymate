@@ -1,10 +1,3 @@
-import streamlit as st
-from src.utils import load_config, get_page_config
-from src.ui.sidebar import render_sidebar
-from src.ui.cards import render_review_cards_tab
-from src.ui.dashboard import render_dashboard_tab
-from src.ui.training import render_training_tab
-from src.ui.menu import render_menu_tab
 import sys
 
 try:
@@ -12,6 +5,14 @@ try:
     sys.modules['sqlite3'] = pysqlite3
 except ImportError:
     pass
+
+import streamlit as st
+from src.utils import load_config, get_page_config
+from src.ui.sidebar import render_sidebar
+from src.ui.cards import render_review_cards_tab
+from src.ui.dashboard import render_dashboard_tab
+from src.ui.training import render_training_tab
+from src.ui.menu import render_menu_tab
 
 # 초기 설정
 st.set_page_config(**get_page_config())
