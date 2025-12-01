@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 SAVED_REVIEWS_FILE = "saved_reviews.json"
 TEMPLATES_FILE = "templates.json"
+DRAFTS_FILE = "draft_reviews.json"  # [NEW] 임시 저장 파일명
 
 
 def _get_path(filename):
@@ -33,7 +34,7 @@ def save_json_data(filename, data):
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f"[INFO] Data saved to {filename}")
+    # 로그가 너무 많이 찍히지 않게 draft 저장은 print 생략 가능
 
 
 def save_completed_review(review_data):
@@ -42,25 +43,31 @@ def save_completed_review(review_data):
     save_json_data(SAVED_REVIEWS_FILE, current_data)
 
 
+# [NEW] 임시 저장소(Draft) 관련 함수
+def save_drafts(draft_data):
+    """현재 작업 중인 카드 상태 저장"""
+    save_json_data(DRAFTS_FILE, draft_data)
+
+
+def load_drafts():
+    """작업 중이던 카드 상태 불러오기"""
+    return load_json_data(DRAFTS_FILE)
+
+
+
 def get_korean_font_path():
-    """OS별 한글 폰트 경로 확인"""
     system_name = platform.system()
     font_path = None
-
     if system_name == "Windows":
         font_path = "c:/Windows/Fonts/malgun.ttf"
     elif system_name == "Darwin":
         font_path = "/System/Library/Fonts/AppleGothic.ttf"
     else:
-        # 리눅스 (Streamlit Cloud 등)
         font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
 
-    # 폰트 파일 존재 여부 확인
     if font_path and Path(font_path).exists():
         return font_path
-    else:
-        print(f"[WARN] Font not found at {font_path}. Using default font.")
-        return None
+    return None
 
 
 def generate_analytics_data():
@@ -70,17 +77,12 @@ def generate_analytics_data():
     if df.empty:
         return pd.DataFrame(), None
 
-    # 워드클라우드 생성
     text_corpus = " ".join(df['review_text'].astype(str).tolist())
-
-    # 텍스트가 비어있으면 조기 리턴
     if not text_corpus.strip():
         return df, None
 
     font_path = get_korean_font_path()
-
     try:
-        # font_path가 None이면 기본 폰트 사용 (한글 깨짐 가능성 있음)
         wc = WordCloud(
             font_path=font_path,
             background_color="white",
@@ -96,20 +98,23 @@ def generate_analytics_data():
 
 
 def reset_app_data():
-    print("[INFO] Resetting saved reviews...")
+    """데이터 초기화 (완료된 리뷰 + 임시 저장 데이터 + 커스텀 말투)"""
+    print("[INFO] Resetting all data...")
+
+    # 1. 완료된 리뷰 삭제
     save_json_data(SAVED_REVIEWS_FILE, [])
 
+    # 2. [NEW] 작성 중인 임시 데이터 삭제
+    save_json_data(DRAFTS_FILE, [])
+
+    # 3. 말투 학습 데이터 초기화 (커스텀만 삭제)
     templates = load_json_data(TEMPLATES_FILE)
     if templates:
         base_templates = [
             t for t in templates
             if t.get("metadata", {}).get("tone") != "owner_custom"
         ]
-
         if len(templates) != len(base_templates):
             save_json_data(TEMPLATES_FILE, base_templates)
-            print(f"[INFO] Removed {len(templates) - len(base_templates)} custom templates.")
-        else:
-            print("[INFO] No custom templates to remove.")
 
     return True

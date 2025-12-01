@@ -14,7 +14,7 @@ def get_llm(model_name="gemini-2.5-flash"):
     """Gemini 모델 인스턴스 반환"""
     llm = ChatGoogleGenerativeAI(
         model=model_name,
-        temperature=0.7,
+        temperature=0.2,
         google_api_key=os.getenv("GOOGLE_API_KEY")
     )
     return llm
