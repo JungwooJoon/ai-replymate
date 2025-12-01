@@ -1,9 +1,8 @@
 import json
-import pandas as pd
 import platform
 from pathlib import Path
+import pandas as pd
 from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 
 # 경로 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,10 +16,8 @@ def _get_path(filename):
 
 
 def load_json_data(filename):
-    """JSON 파일 로드"""
     file_path = _get_path(filename)
     if not file_path.exists():
-        # 파일이 없으면 빈 리스트 반환
         return []
     with open(file_path, 'r', encoding='utf-8') as f:
         try:
@@ -30,9 +27,7 @@ def load_json_data(filename):
 
 
 def save_json_data(filename, data):
-    """JSON 파일 저장"""
     file_path = _get_path(filename)
-    # data 폴더가 없으면 생성
     if not DATA_DIR.exists():
         DATA_DIR.mkdir(parents=True)
 
@@ -42,28 +37,50 @@ def save_json_data(filename, data):
 
 
 def save_completed_review(review_data):
-    """[Req 2] 완료된 리뷰 및 답글 저장"""
     current_data = load_json_data(SAVED_REVIEWS_FILE)
     current_data.append(review_data)
     save_json_data(SAVED_REVIEWS_FILE, current_data)
 
 
-def generate_analytics_data():
-    """[Req 3] 저장된 완료 리뷰 기반 통계 데이터 생성"""
-    # templates.json이 아닌 saved_reviews.json을 로드
-    reviews = load_json_data(SAVED_REVIEWS_FILE)
+def get_korean_font_path():
+    """OS별 한글 폰트 경로 확인"""
+    system_name = platform.system()
+    font_path = None
 
+    if system_name == "Windows":
+        font_path = "c:/Windows/Fonts/malgun.ttf"
+    elif system_name == "Darwin":
+        font_path = "/System/Library/Fonts/AppleGothic.ttf"
+    else:
+        # 리눅스 (Streamlit Cloud 등)
+        font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+
+    # 폰트 파일 존재 여부 확인
+    if font_path and Path(font_path).exists():
+        return font_path
+    else:
+        print(f"[WARN] Font not found at {font_path}. Using default font.")
+        return None
+
+
+def generate_analytics_data():
+    reviews = load_json_data(SAVED_REVIEWS_FILE)
     df = pd.DataFrame(reviews)
 
     if df.empty:
         return pd.DataFrame(), None
 
-    # 워드클라우드용 텍스트 (리뷰 내용 기준)
+    # 워드클라우드 생성
     text_corpus = " ".join(df['review_text'].astype(str).tolist())
+
+    # 텍스트가 비어있으면 조기 리턴
+    if not text_corpus.strip():
+        return df, None
 
     font_path = get_korean_font_path()
 
     try:
+        # font_path가 None이면 기본 폰트 사용 (한글 깨짐 가능성 있음)
         wc = WordCloud(
             font_path=font_path,
             background_color="white",
@@ -79,24 +96,16 @@ def generate_analytics_data():
 
 
 def reset_app_data():
-    """
-    1. 저장된 완료 리뷰(saved_reviews.json) 삭제
-    2. 학습된 사장님 말투(templates.json 내 owner_custom) 삭제
-    """
-    # 1. 완료된 리뷰 초기화
     print("[INFO] Resetting saved reviews...")
     save_json_data(SAVED_REVIEWS_FILE, [])
 
-    # 2. 템플릿에서 학습 데이터 제거 (기본 데이터는 유지)
     templates = load_json_data(TEMPLATES_FILE)
     if templates:
-        # tone이 'owner_custom'이 아닌 것만 남김 (기본 데이터 보존)
         base_templates = [
             t for t in templates
             if t.get("metadata", {}).get("tone") != "owner_custom"
         ]
 
-        # 삭제된 항목이 있을 때만 저장
         if len(templates) != len(base_templates):
             save_json_data(TEMPLATES_FILE, base_templates)
             print(f"[INFO] Removed {len(templates) - len(base_templates)} custom templates.")
@@ -104,14 +113,3 @@ def reset_app_data():
             print("[INFO] No custom templates to remove.")
 
     return True
-
-
-def get_korean_font_path():
-    """OS별 한글 폰트 경로"""
-    system_name = platform.system()
-    if system_name == "Windows":
-        return "c:/Windows/Fonts/malgun.ttf"
-    elif system_name == "Darwin":
-        return "/System/Library/Fonts/AppleGothic.ttf"
-    else:
-        return "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
