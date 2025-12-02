@@ -105,21 +105,28 @@ class ReplyMateRAG:
             return []
 
     def search_menu(self, query: str, k=1):
-        # 유효성 검사 추가 (None 또는 빈 문자열 방지)
         if not query or not isinstance(query, str):
-            print(f"[WARN] Invalid query for menu search: {query}. Skipping.")
             return []
 
         if not self.vector_store:
             self.load_db()
 
         try:
-            results = self.vector_store.similarity_search(
+            results_with_score = self.vector_store.similarity_search_with_score(
                 query=query,
                 k=k,
                 filter={"type": "menu"}
             )
-            return [doc.page_content for doc in results]
+
+            valid_docs = []
+            for doc, score in results_with_score:
+                if score < 0.8:
+                    valid_docs.append(doc.page_content)
+                else:
+                    print(f"[INFO] Menu dropped due to low similarity: {doc.page_content} (Score: {score})")
+
+            return valid_docs
+
         except Exception as e:
             print(f"[WARN] Menu search failed: {e}")
             return []

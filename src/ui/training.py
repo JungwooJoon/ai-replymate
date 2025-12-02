@@ -5,7 +5,8 @@ from src.rag import ReplyMateRAG
 
 
 def render_training_tab():
-    st.markdown("### 🗣️ 사장님 말투 학습")
+    # [ICON]
+    st.markdown("### :material/record_voice_over: 사장님 말투 학습")
 
     with st.container(border=True):
         st.caption("평소 말투를 입력하면 AI가 학습합니다.")
@@ -16,7 +17,8 @@ def render_training_tab():
                 height=100
             )
 
-            if st.form_submit_button("학습시키기 🎓"):
+            # [ICON] 학습
+            if st.form_submit_button("학습 시작", icon=":material/school:"):
                 if owner_reply:
                     with st.spinner("분석 중..."):
                         meta = auto_classify_reply(owner_reply)
@@ -34,13 +36,12 @@ def render_training_tab():
                         templates.append(new_entry)
                         save_json_data("templates.json", templates)
 
-                        # DB 업데이트
                         rag = ReplyMateRAG()
                         rag.init_db()
 
                         st.success(f"학습 완료! ({meta['sentiment']})")
                 else:
-                    st.warning("내용을 입력해주세요.")
+                    st.warning("내용 입력 필요")
 
     st.markdown("#### 학습 내역")
     templates = load_json_data("templates.json")

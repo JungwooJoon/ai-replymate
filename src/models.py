@@ -1,5 +1,6 @@
 import os
 import json
+import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from transformers import pipeline
 from dotenv import load_dotenv
@@ -10,24 +11,38 @@ load_dotenv()
 sentiment_analyzer = None
 
 
+@st.cache_resource
 def get_llm(model_name="gemini-2.5-flash"):
-    """Gemini 모델 인스턴스 반환"""
+    api_key = None
+
+    try:
+        if "GOOGLE_API_KEY" in st.secrets:
+            api_key = st.secrets["GOOGLE_API_KEY"]
+    except FileNotFoundError:
+        pass
+
+    if not api_key:
+        api_key = os.getenv("GOOGLE_API_KEY")
+
+    if not api_key:
+        st.error("API Key를 찾을 수 없습니다. .env 또는 secrets.toml을 확인하세요.")
+        st.stop()
+
     llm = ChatGoogleGenerativeAI(
         model=model_name,
-        temperature=0.2,
-        google_api_key=os.getenv("GOOGLE_API_KEY")
+        temperature=0.7,
+        google_api_key=api_key
     )
     return llm
 
 
+@st.cache_resource
 def get_sentiment_analyzer():
-    global sentiment_analyzer
-    if sentiment_analyzer is None:
-        print("[INFO] Loading sentiment model...")
-        sentiment_analyzer = pipeline(
-            "sentiment-analysis",
-            model="matthewburke/korean_sentiment"
-        )
+    print("[INFO] Loading sentiment model... (This should happen only once)")
+    sentiment_analyzer = pipeline(
+        "sentiment-analysis",
+        model="matthewburke/korean_sentiment"
+    )
     return sentiment_analyzer
 
 
@@ -67,5 +82,4 @@ def auto_classify_reply(reply_text):
         return json.loads(content)
     except Exception as e:
         print(f"[ERROR] Auto-classification failed: {e}")
-        # 실패 시 기본값 반환
         return {"sentiment": "positive", "category": "service"}

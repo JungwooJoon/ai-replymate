@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 SAVED_REVIEWS_FILE = "saved_reviews.json"
 TEMPLATES_FILE = "templates.json"
-DRAFTS_FILE = "draft_reviews.json"  # [NEW] 임시 저장 파일명
+DRAFTS_FILE = "draft_reviews.json"
 
 
 def _get_path(filename):
@@ -34,25 +34,44 @@ def save_json_data(filename, data):
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    # 로그가 너무 많이 찍히지 않게 draft 저장은 print 생략 가능
 
 
+# [FIX] 중복 저장 방지 로직 (ID 기준 덮어쓰기)
 def save_completed_review(review_data):
     current_data = load_json_data(SAVED_REVIEWS_FILE)
-    current_data.append(review_data)
+
+    # 전달받은 데이터에 ID가 있는지 확인
+    target_id = review_data.get("id")
+
+    if target_id:
+        # 이미 같은 ID가 있는지 검사
+        found_index = -1
+        for idx, item in enumerate(current_data):
+            if item.get("id") == target_id:
+                found_index = idx
+                break
+
+        if found_index != -1:
+            # 있으면 교체 (Update)
+            current_data[found_index] = review_data
+            print(f"[INFO] Updated review {target_id}")
+        else:
+            # 없으면 추가 (Create)
+            current_data.append(review_data)
+            print(f"[INFO] Created new review {target_id}")
+    else:
+        # ID가 없으면 그냥 추가 (구형 데이터 호환)
+        current_data.append(review_data)
+
     save_json_data(SAVED_REVIEWS_FILE, current_data)
 
 
-# [NEW] 임시 저장소(Draft) 관련 함수
 def save_drafts(draft_data):
-    """현재 작업 중인 카드 상태 저장"""
     save_json_data(DRAFTS_FILE, draft_data)
 
 
 def load_drafts():
-    """작업 중이던 카드 상태 불러오기"""
     return load_json_data(DRAFTS_FILE)
-
 
 
 def get_korean_font_path():
@@ -98,16 +117,10 @@ def generate_analytics_data():
 
 
 def reset_app_data():
-    """데이터 초기화 (완료된 리뷰 + 임시 저장 데이터 + 커스텀 말투)"""
     print("[INFO] Resetting all data...")
-
-    # 1. 완료된 리뷰 삭제
     save_json_data(SAVED_REVIEWS_FILE, [])
-
-    # 2. [NEW] 작성 중인 임시 데이터 삭제
     save_json_data(DRAFTS_FILE, [])
 
-    # 3. 말투 학습 데이터 초기화 (커스텀만 삭제)
     templates = load_json_data(TEMPLATES_FILE)
     if templates:
         base_templates = [

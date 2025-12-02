@@ -142,21 +142,5 @@
       "category": "wrong_item",
       "tone": "friendly"
     }
-  },
-  {
-    "content": "고객님 오늘도 감사합니다~!\n향상된 맛으로 보답드리겠습니다!",
-    "metadata": {
-      "sentiment": "positive",
-      "category": "taste_good",
-      "tone": "owner_custom"
-    }
-  },
-  {
-    "content": "죄송합니다, 고객님.\n제가 다른 주문과 헷갈려 빠뜨린 것 같습니다.\n이번 실수를 기반으로 다음번에는 꼭 실수하지 않도록 주의하도록 하겠습니다.",
-    "metadata": {
-      "sentiment": "negative",
-      "category": "wrong_item",
-      "tone": "owner_custom"
-    }
   }
 ]
