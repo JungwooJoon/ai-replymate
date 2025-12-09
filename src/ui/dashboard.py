@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-# [삭제] import matplotlib.pyplot as plt (이제 필요 없음)
 from wordcloud import WordCloud
 from src.data_manager import generate_analytics_data, get_korean_font_path
 
@@ -133,7 +132,7 @@ def render_dashboard_tab():
 
                         # [FIX] Matplotlib(plt) 대신 st.image 사용! (훨씬 안정적)
                         # 워드클라우드 객체를 바로 이미지 배열로 변환해서 출력합니다.
-                        st.image(wc.to_array(), use_container_width=True)
+                        st.image(wc.to_array(), width='stretch')
 
                     except Exception as e:
                         st.error("워드클라우드 생성 실패")

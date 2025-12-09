@@ -1,17 +1,18 @@
 import streamlit as st
 import uuid
 from src.data_manager import save_drafts, load_drafts, load_json_data
-from src.ui.card_views import render_list_view, render_grid_view, open_reply_modal  # open_reply_modal 임포트 필수
+from src.ui.card_views import render_list_view, render_grid_view, open_reply_modal
 
 
-def render_review_cards_tab(selected_tone):
-    # 1. 데이터 로드 (기존 동일)
+def render_review_cards_tab(selected_tone, store_name):
+    # 1. 데이터 로드 (기존과 동일)
     if "active_reviews" not in st.session_state:
         st.session_state.active_reviews = []
         drafts = load_drafts()
         if drafts:
             for d in drafts:
                 if "customer_name" not in d: d["customer_name"] = ""
+                if "menu_name" not in d: d["menu_name"] = ""
         active_drafts = [d for d in drafts if d.get("status") != "saved"] if drafts else []
         saved_history = load_json_data("saved_reviews.json")
         converted_history = []
@@ -20,6 +21,7 @@ def render_review_cards_tab(selected_tone):
                 converted_history.append({
                     "id": item.get("id", str(uuid.uuid4())),
                     "customer_name": item.get("customer_name", ""),
+                    "menu_name": item.get("menu_name", ""),
                     "text": item.get("review_text", ""),
                     "reply": item.get("reply_text", ""),
                     "sentiment": item.get("sentiment"),
@@ -27,19 +29,28 @@ def render_review_cards_tab(selected_tone):
                 })
         st.session_state.active_reviews = active_drafts + converted_history[::-1]
 
-        # -------------------------------------------------------------
-    # [NEW] 모달 자동 열기 로직 (핵심)
+        # [다른 탭 간섭 방지]
+    other_tab_keys = ["dashboard_filter", "dash_sent", "dash_period", "menu_editor", "simple_training_form"]
+    for key in other_tab_keys:
+        if key in st.session_state:
+            if "edit_target_id" in st.session_state:
+                del st.session_state["edit_target_id"]
+            break
+
+    # -------------------------------------------------------------
+    # [FIX] 모달 열기 로직 (뷰 모드 전달)
     # -------------------------------------------------------------
     if "edit_target_id" in st.session_state and st.session_state["edit_target_id"]:
-        # 해당 ID를 가진 리뷰 찾기
-        target_review = next(
-            (r for r in st.session_state.active_reviews if r['id'] == st.session_state["edit_target_id"]), None)
+        target_id = st.session_state["edit_target_id"]
+        target_review = next((r for r in st.session_state.active_reviews if r['id'] == target_id), None)
+
+        # 저장된 뷰 모드가 있으면 사용, 없으면 기본 desktop
+        view_mode = st.session_state.get('target_view_mode', 'desktop')
 
         if target_review:
-            # 모달 열기
-            open_reply_modal(target_review, selected_tone)
+            # [FIX] view_mode 전달
+            open_reply_modal(target_review, selected_tone, store_name, view_mode)
         else:
-            # 리뷰가 없으면(삭제됨 등) ID 초기화
             del st.session_state["edit_target_id"]
             st.rerun()
 
@@ -62,6 +73,7 @@ def render_review_cards_tab(selected_tone):
             new_review = {
                 "id": str(uuid.uuid4()),
                 "customer_name": "",
+                "menu_name": "",
                 "text": "",
                 "reply": None,
                 "status": "draft"
@@ -69,12 +81,14 @@ def render_review_cards_tab(selected_tone):
             st.session_state.active_reviews.insert(0, new_review)
             save_drafts(st.session_state.active_reviews)
 
-            # [추가] 생성 즉시 모달 열기
             st.session_state["edit_target_id"] = new_review["id"]
+            # 추가 버튼은 보통 PC/모바일 공통이므로 기본값 desktop 사용하되,
+            # 현재 뷰 모드에 따라 결정하려면 아래와 같이 설정
+            st.session_state['target_view_mode'] = 'desktop' if view_mode == "리스트" else "mobile"
             st.rerun()
 
-    # 3. 필터 UI 및 로직
-    with st.expander("🔍 필터 및 검색 옵션", expanded=False, icon=":material/filter_list:"):
+    # 3. 필터 UI (기존 동일)
+    with st.expander("필터 및 검색 옵션", expanded=False, icon=":material/filter_list:"):
         f_col1, f_col2 = st.columns(2)
         with f_col1:
             status_filter = st.multiselect(
@@ -110,18 +124,16 @@ def render_review_cards_tab(selected_tone):
 
     st.markdown("---")
 
-    # 4. 뷰 렌더링 호출
     ids_to_remove = []
 
     if not filtered_reviews:
         st.info("조건에 맞는 리뷰가 없습니다.")
     else:
         if view_mode == "리스트":
-            render_list_view(filtered_reviews, selected_tone, ids_to_remove)
+            render_list_view(filtered_reviews, selected_tone, store_name, ids_to_remove)
         else:
-            render_grid_view(filtered_reviews, selected_tone, ids_to_remove)
+            render_grid_view(filtered_reviews, selected_tone, store_name, ids_to_remove)
 
-    # 5. 삭제 처리
     if ids_to_remove:
         st.session_state.active_reviews = [
             r for r in st.session_state.active_reviews

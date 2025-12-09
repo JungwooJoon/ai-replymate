@@ -1,4 +1,3 @@
-# ... (기존 import 및 init 부분 동일) ...
 import json
 import shutil
 from pathlib import Path
@@ -29,35 +28,66 @@ class ReplyMateRAG:
             return json.load(f)
 
     def init_db(self, template_file="templates.json", menu_file="menu_info.json"):
-        if DB_DIR.exists():
-            shutil.rmtree(DB_DIR)
+        """
+        [수정됨] 폴더를 삭제하지 않고, 내부 데이터만 갱신하는 방식으로 변경
+        (WinError 32 파일 잠금 오류 해결)
+        """
 
-        templates = self._load_json(template_file)
+        # 1. 문서 데이터 준비
         docs = []
+
+        # 템플릿 로드
+        templates = self._load_json(template_file)
         for t in templates:
-            # 메타데이터가 없는 경우 대비
             meta = t.get("metadata", {})
             docs.append(Document(page_content=t["content"], metadata=meta))
 
+        # 메뉴 로드
         menus = self._load_json(menu_file)
         for m in menus:
             content = f"메뉴명: {m['menu_name']} / 특징: {m['description']}"
             meta = {"type": "menu", "name": m['menu_name']}
             docs.append(Document(page_content=content, metadata=meta))
 
-        self.vector_store = Chroma.from_documents(
-            documents=docs,
-            embedding=self.embeddings,
-            persist_directory=self.persist_dir,
-            collection_name="reply_data"
-        )
-        print(f"[SUCCESS] ChromaDB initialized at: {self.persist_dir}")
+        # 2. DB 업데이트 (삭제 후 재생성 대신 갱신)
+        if DB_DIR.exists():
+            print("[INFO] Updating existing DB...")
+            # 기존 DB 로드
+            self.vector_store = Chroma(
+                persist_directory=self.persist_dir,
+                embedding_function=self.embeddings,
+                collection_name="reply_data"
+            )
+
+            # [핵심] 기존 데이터 삭제 (IDs 조회 후 삭제)
+            # 폴더를 지우는 게 아니라, SQL처럼 데이터만 지움 -> 파일 잠금 안 걸림
+            try:
+                existing_ids = self.vector_store.get()['ids']
+                if existing_ids:
+                    self.vector_store.delete(ids=existing_ids)
+                    print(f"[INFO] Deleted {len(existing_ids)} old documents.")
+
+                # 새 데이터 추가
+                if docs:
+                    self.vector_store.add_documents(docs)
+                    print(f"[INFO] Added {len(docs)} new documents.")
+            except Exception as e:
+                print(f"[ERROR] DB update failed: {e}")
+
+        else:
+            print("[INFO] Creating new DB...")
+            # DB가 아예 없으면 새로 생성
+            if docs:
+                self.vector_store = Chroma.from_documents(
+                    documents=docs,
+                    embedding=self.embeddings,
+                    persist_directory=self.persist_dir,
+                    collection_name="reply_data"
+                )
+
+        print(f"[SUCCESS] ChromaDB updated at: {self.persist_dir}")
 
     def load_db(self):
-        if not Path(self.persist_dir).exists() or not any(Path(self.persist_dir).iterdir()):
-            print("[INFO] DB not found on server. Initializing automatically...")
-            self.init_db()
-
         self.vector_store = Chroma(
             persist_directory=self.persist_dir,
             embedding_function=self.embeddings,
@@ -68,67 +98,45 @@ class ReplyMateRAG:
         if not self.vector_store:
             self.load_db()
 
-        conditions = []
+        conditions = [{"sentiment": {"$eq": sentiment}}]
 
-        # 1. sentiment는 필수 값이므로 항상 추가 (None이면 에러 발생 가능성 있으므로 체크)
-        if sentiment:
-            conditions.append({"sentiment": {"$eq": sentiment}})
-
-        # 2. category가 유효한 값(None이 아니고 빈 문자열 아님)일 때만 추가
-        if category and category != "null":
+        if category:
             conditions.append({"category": {"$eq": category}})
 
-        # 3. tone이 유효한 값일 때만 추가
         if tone:
             conditions.append({"tone": {"$eq": tone}})
 
-        # 조건 조합 로직
         if len(conditions) > 1:
             filter_cond = {"$and": conditions}
-        elif len(conditions) == 1:
-            filter_cond = conditions[0]
         else:
-            # 조건이 하나도 없으면 필터링 없이 검색 (또는 빈 딕셔너리)
-            filter_cond = {}
+            filter_cond = conditions[0]
 
         print(f"[INFO] Search Filter: {filter_cond}")
 
+        # 데이터가 없을 경우 에러 방지
         try:
             results = self.vector_store.similarity_search(
                 query="리뷰 답변 템플릿",
                 k=k,
-                filter=filter_cond if filter_cond else None  # 필터가 비었으면 None 전달
+                filter=filter_cond
             )
             return [doc.page_content for doc in results]
         except Exception as e:
-            print(f"[WARN] Search failed: {e}")
+            print(f"[WARN] Search failed (maybe empty DB): {e}")
             return []
 
     def search_menu(self, query: str, k=1):
-        if not query or not isinstance(query, str):
-            return []
-
         if not self.vector_store:
             self.load_db()
 
         try:
-            results_with_score = self.vector_store.similarity_search_with_score(
+            results = self.vector_store.similarity_search(
                 query=query,
                 k=k,
                 filter={"type": "menu"}
             )
-
-            valid_docs = []
-            for doc, score in results_with_score:
-                if score < 0.8:
-                    valid_docs.append(doc.page_content)
-                else:
-                    print(f"[INFO] Menu dropped due to low similarity: {doc.page_content} (Score: {score})")
-
-            return valid_docs
-
-        except Exception as e:
-            print(f"[WARN] Menu search failed: {e}")
+            return [doc.page_content for doc in results]
+        except:
             return []
 
 

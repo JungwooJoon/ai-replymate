@@ -10,7 +10,7 @@ DATA_DIR = BASE_DIR / "data"
 SAVED_REVIEWS_FILE = "saved_reviews.json"
 TEMPLATES_FILE = "templates.json"
 DRAFTS_FILE = "draft_reviews.json"
-
+STORE_INFO_FILE = "store_info.json"
 
 def _get_path(filename):
     return DATA_DIR / filename
@@ -34,6 +34,21 @@ def save_json_data(filename, data):
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def save_store_name(name):
+    """가게 이름을 JSON 파일에 저장 (딕셔너리 형태)"""
+    data = {"store_name": name}
+    save_json_data(STORE_INFO_FILE, data)
+
+
+def load_store_name():
+    """저장된 가게 이름 불러오기"""
+    # load_json_data는 리스트나 딕셔너리를 반환함
+    data = load_json_data(STORE_INFO_FILE)
+    if isinstance(data, dict):
+        return data.get("store_name", "")
+    return
 
 
 # [FIX] 중복 저장 방지 로직 (ID 기준 덮어쓰기)

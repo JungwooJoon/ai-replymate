@@ -29,10 +29,10 @@ def main():
     # [ICON] 타이틀 아이콘 변경
     st.title(":material/forum: AI ReplyMate")
 
-    # 사이드바 렌더링
-    selected_tone = render_sidebar()
+    # 사이드바 렌더링 (여기서 store_name을 받음)
+    selected_tone, store_name = render_sidebar()
 
-    # 탭 구성 (이모티콘 -> 아이콘 변경)
+    # 탭 구성
     tab1, tab2, tab3, tab4 = st.tabs([
         ":material/rate_review: 리뷰 관리",
         ":material/bar_chart: 대시보드",
@@ -41,7 +41,7 @@ def main():
     ])
 
     with tab1:
-        render_review_cards_tab(selected_tone)
+        render_review_cards_tab(selected_tone, store_name)
 
     with tab2:
         render_dashboard_tab()
