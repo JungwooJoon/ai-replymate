@@ -63,13 +63,11 @@
 
 ```mermaid
   graph LR
-    A[사용자 리뷰 입력] --> B{감정 분석 (KoBERT)};
-    B -->|긍정| C[감사 템플릿 검색];
-    B -->|부정| D[사과 템플릿 검색];
-    C & D --> E[관련 메뉴 정보 검색 (RAG)];
-    E --> F[LLM 답글 생성 (Gemini)];
-    F --> G[사장님 톤 반영];
-    G --> H[최종 답글 출력];
+    User["사용자 입력"] --> Analysis{"감정/의도 분석 (Gemini)"}
+    Analysis -->|"긍정/부정/메뉴추출"| RAG["데이터 검색 (ChromaDB)"]
+    RAG -->|"메뉴정보 + 말투템플릿"| Generation["답글 생성 (Gemini)"]
+    Generation --> UI["모달 에디터 출력"]
+    UI -->|"사장님 수정/검수"| Save["최종 저장 (JSON)"]
 ```
 ## 🚀 설치 및 실행 방법 (Getting Started)
 이 프로젝트는 로컬 환경에서 실행할 수 있도록 설계되었습니다.
