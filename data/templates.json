@@ -144,31 +144,23 @@
     }
   },
   {
-    "content": "OO님, 안녕하세요 한번에 많은 양을 만들어 준비해두어 고추빼기는 불가능합니다 ㅠㅠ 죄송합니다",
+    "content": "OO님! 달토끼 떡볶이 강남점을 찾아주셔서 감사합니다 ^^ 매콤달콤 떡볶이랑 바삭 튀김은 찰떡궁합이죠! 또 생각나면 들러주세요~",
     "metadata": {
-      "sentiment": "negative",
-      "category": "service",
+      "sentiment": "positive",
+      "category": "taste_good",
       "tone": "owner_custom"
     }
   },
   {
-    "content": "OO님, 안녕하세요 한번에 많은 양을 만들어 준비해두어 고추빼기는 불가능합니다 ㅠㅠ 죄송합니다",
+    "content": "OO님 안녕하세요 ^^ 맛있게 드셨다니 정말 다행이에요! 저희 달토끼는 매일 새 기름으로 튀겨서 더 바삭하답니다. 다음에 또 주문해주세요!",
     "metadata": {
-      "sentiment": "negative",
-      "category": "service",
+      "sentiment": "positive",
+      "category": "taste_good",
       "tone": "owner_custom"
     }
   },
   {
-    "content": "OO님, 안녕하세요 ^^ 필요하시면 고추전은 깻잎전으로만 변경이 가능하여 그 점 괜찮으시다면 주문시 요청 사항에 기재해주세요!^^ 육전 새우전으로는 가격이 달라 변경이 불가한 점 양해 부탁드립니다",
-    "metadata": {
-      "sentiment": "negative",
-      "category": "service",
-      "tone": "owner_custom"
-    }
-  },
-  {
-    "content": "OO님, 간 조절 후기 여러 분 참고하여 좀 더 신경쓰도록 하겠습니다 ^^ 감사합니다!",
+    "content": "OO님 떡볶이가 입에 맞지 않으셨다니 속상하네요 ㅠㅠ 맵기 조절이 필요하시면 요청사항에 남겨주세요! 입맛에 딱 맞는 떡볶이로 보답하겠습니다. 죄송합니다.",
     "metadata": {
       "sentiment": "negative",
       "category": "taste_bad",
@@ -176,26 +168,34 @@
     }
   },
   {
-    "content": "OO님, 감사합니다 ^^ 항상 다양하고 맛있게 드릴 수 있도록 노력하겠습니다.",
+    "content": "OO님 배달이 늦어져서 튀김이 눅눅해졌군요 ㅠㅠ 정말 죄송합니다. 다음엔 숨구멍 뽕뽕 뚫어서 더 바삭하게 도착할 수 있도록 신경 쓸게요!",
     "metadata": {
-      "sentiment": "positive",
-      "category": "taste_good",
+      "sentiment": "negative",
+      "category": "taste_bad",
       "tone": "owner_custom"
     }
   },
   {
-    "content": "OO님, 맛있게 드셔주셔서 감사합니다 책임감가지고 항상 열심히 하겠습니다 감사합니다!",
+    "content": "OO님! 리뷰 남겨주셔서 감사합니다 ^^ 요청하신 쿨피스 얼음컵은 위생상 제공이 어려워요 ㅠㅠ 양해 부탁드립니다! 대신 서비스 넉넉히 챙겨드릴게요~",
     "metadata": {
-      "sentiment": "positive",
-      "category": "taste_good",
+      "sentiment": "negative",
+      "category": "service",
       "tone": "owner_custom"
     }
   },
   {
-    "content": "OO님, 아이가 잘 먹었다는 소리가 제일 기분 좋은 것 같아요 항상 만족하실 수 있도록 노력하겠습니다 감사합니다^^",
+    "content": "OO님 주문하신 메뉴가 누락되어 너무 죄송합니다 ㅠㅠ 바쁜 시간에 꼼꼼히 확인 못 했네요. 가게로 전화 주시면 바로 처리해 드리겠습니다! 죄송합니다.",
+    "metadata": {
+      "sentiment": "negative",
+      "category": "service",
+      "tone": "owner_custom"
+    }
+  },
+  {
+    "content": "OO님 항상 믿고 주문해 주셔서 감사합니다! ^^ 단골 손님 덕분에 오늘도 힘이 납니다! 변치 않는 맛으로 보답할게요~",
     "metadata": {
       "sentiment": "positive",
-      "category": "taste_good",
+      "category": "service",
       "tone": "owner_custom"
     }
   }
