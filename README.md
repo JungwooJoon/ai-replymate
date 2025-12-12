@@ -91,12 +91,19 @@ source venv/bin/activate
 ```Bash
 pip install -r requirements.txt
 ```
-4. 환경 변수 설정 (.env)
-프로젝트 루트 경로에 .env 파일을 생성하고 LLM API 키를 입력하세요.
+4. API 키 설정 (보안)
+본 프로젝트는 보안을 위해 API Key를 코드에 포함하지 않습니다. `.env.example` 파일을 활용하여 환경 변수를 설정해주세요.
 
-```Plaintext
-GOOGLE_API_KEY=AIzaSyD-your-google-api-key-here...
-```
+   1. **키 발급:** [Google AI Studio](https://aistudio.google.com/)에서 무료 API Key를 발급받습니다.
+   2. **환경 변수 파일 생성:**
+       * 프로젝트 루트에 있는 `.env.example` 파일의 이름을 `.env`로 변경합니다. (또는 복사해서 `.env` 생성)
+       * `.env` 파일은 `.gitignore`에 등록되어 있어 GitHub에 업로드되지 않습니다.
+   3. **키 입력:** 생성된 `.env` 파일을 열고 발급받은 키를 입력합니다.
+
+    **`.env` 파일 예시:**
+    ```env
+    GOOGLE_API_KEY=AIzaSyD-여기에-당신의-API키를-입력하세요
+    ```
 5. 애플리케이션 실행 (Run)
 ```Bash
 streamlit run app.py
