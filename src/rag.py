@@ -28,10 +28,6 @@ class ReplyMateRAG:
             return json.load(f)
 
     def init_db(self, template_file="templates.json", menu_file="menu_info.json"):
-        """
-        [수정됨] 폴더를 삭제하지 않고, 내부 데이터만 갱신하는 방식으로 변경
-        (WinError 32 파일 잠금 오류 해결)
-        """
 
         # 1. 문서 데이터 준비
         docs = []
@@ -125,9 +121,28 @@ class ReplyMateRAG:
             print(f"[WARN] Search failed (maybe empty DB): {e}")
             return []
 
-    def search_menu(self, query: str, k=1):
+    def search_menu(self, query: str, k=1, target_menu_name: str = None):
+        """
+        메뉴 정보를 가져옵니다.
+        target_menu_name이 있으면 유사도 검색 대신 'DB 조회(Exact Match)'를 수행합니다.
+        """
         if not self.vector_store:
             self.load_db()
+
+        if target_menu_name and target_menu_name != "null":
+            print(f"[INFO] 메뉴 정보 강제 조회 (DB): {target_menu_name}")
+            try:
+                results = self.vector_store.get(
+                    where={"name": target_menu_name},
+                    limit=1
+                )
+                # 조회된 문서가 있으면 반환
+                if results['documents']:
+                    return results['documents']
+            except Exception as e:
+                print(f"[WARN] DB Fetch failed: {e}")
+
+            return []
 
         try:
             results = self.vector_store.similarity_search(
@@ -136,7 +151,8 @@ class ReplyMateRAG:
                 filter={"type": "menu"}
             )
             return [doc.page_content for doc in results]
-        except:
+        except Exception as e:
+            print(f"[WARN] Similarity search failed: {e}")
             return []
 
 

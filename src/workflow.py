@@ -98,39 +98,37 @@ def analyze_node(state: GraphState):
 # NODE 2: Retrieve
 # ------------------------------------------------------------------
 def retrieve_node(state: GraphState):
-    tone = state["tone"]
-    target_tone = "owner_custom" if tone == "사장님 말투" else tone_map.get(tone, "polite")
+    """
+    RAG 검색 노드 (메뉴 정보 및 말투 템플릿 검색)
+    """
+    print("--- RETRIEVE INFO ---")
+    rag = ReplyMateRAG()
 
-    templates = rag.search_templates(
-        sentiment=state["sentiment"],
-        category=state["category"],
-        tone=target_tone,
-        k=3
+    # 1. 타겟 메뉴명 확인 (UI 선택값 우선 -> 없으면 AI 추출값)
+    target_menu = state.get("manual_menu")
+    if not target_menu or target_menu == "null":
+        target_menu = state.get("extracted_menu")
+
+    print(f"검색 대상 메뉴: {target_menu}")  # 로그 확인용
+
+    # 2. [핵심] 수정된 search_menu 함수 호출 (target_menu_name 인자 전달)
+    # 이제 유사도 검색이 아니라 'DB 직접 조회'를 수행합니다.
+    menu_docs = rag.search_menu(state["review_text"], target_menu_name=target_menu)
+
+    # 3. 말투 템플릿 검색
+    tone_docs = rag.search_templates(
+        state["sentiment"],
+        # 카테고리나 톤 정보가 있으면 추가 필터링 가능 (여기서는 기본 검색)
     )
 
-    menu_info = []
+    # 검색 결과 로그 출력
+    print(f"검색된 메뉴 정보: {menu_docs}")
+    print(f"검색된 말투 예시: {len(tone_docs)}개")
 
-    # [LOGIC] 사용자가 직접 입력한 메뉴가 있으면 최우선 사용
-    manual_menu = state.get("manual_menu", "").strip()
-    extracted_menu = state.get("extracted_menu", "")
-
-    target_query = ""
-
-    if manual_menu:
-        print(f"[INFO] Using manual menu: {manual_menu}")
-        target_query = manual_menu
-    elif extracted_menu and extracted_menu != "null":
-        print(f"[INFO] Using extracted menu: {extracted_menu}")
-        target_query = extracted_menu
-    else:
-        print(f"[INFO] Using full review text for search")
-        target_query = state["review_text"]
-
-    # 메뉴 검색 실행
-    if target_query:
-        menu_info = rag.search_menu(query=target_query, k=2)
-
-    return {"retrieved_templates": templates, "retrieved_menus": menu_info}
+    return {
+        "retrieved_menus": menu_docs,
+        "retrieved_templates": tone_docs
+    }
 
 
 # ------------------------------------------------------------------
@@ -139,65 +137,101 @@ def retrieve_node(state: GraphState):
 def generate_node(state: GraphState):
     llm = get_llm()
 
-    # 템플릿이 리스트로 들어오므로 문자열로 변환
+    # ------------------------------------------------------------------
+    # 1. 데이터 전처리 (리스트 -> 문자열 변환)
+    # ------------------------------------------------------------------
     if state["retrieved_templates"]:
         context_templates = "\n".join([f"- {t}" for t in state["retrieved_templates"]])
     else:
-        context_templates = "참고할 템플릿이 없습니다. 일반적인 정중한 말투로 작성하세요."
+        context_templates = "참고할 템플릿이 없습니다."
 
-    # 메뉴 정보 처리
-    context_menus = ""
     if state["retrieved_menus"]:
         context_menus = "\n".join([f"- {m}" for m in state["retrieved_menus"]])
+    else:
+        context_menus = "None"
 
-    # 사용자 피드백 처리
-    feedback_instruction = ""
-    if state.get("user_feedback"):
-        feedback_instruction = f"""
-        [수정 요청] 사용자가 다음 사항을 요구했습니다: "{state['user_feedback']}".
-        이 요청을 최우선으로 반영하세요.
+    # ------------------------------------------------------------------
+    # 2. 톤(Tone)에 따른 프롬프트 지시사항 분기 (핵심 로직)
+    # ------------------------------------------------------------------
+    current_tone = state.get("tone", "친근한")
+
+    if current_tone == "정중한":
+        # [A] 정중한 모드: 이모티콘 금지, 격식체 강제
+        tone_instructions = """
+        3. **Tone & Manner (FORMAL MODE):**
+           - **STRICTLY FORBIDDEN:** Do NOT use emojis (e.g., ^^, ㅠㅠ, 😊) and Tildes (~).
+           - **Style:** Professional, Objective, and Polite (Like a Hotel Concierge).
+           - **Endings:** Use formal endings like "~입니다", "~하겠습니다", "~십시오".
+           - **Structure:** Start with "고객님," or "{state['customer_name']}님,".
+        """
+    else:
+        # [B] 사장님/친근한 모드: 데이터 모방, 텍스트 이모티콘 허용
+        tone_instructions = """
+        3. **Tone & Manner (OWNER/CASUAL MODE):**
+           - **Style Source:** Mimic 'Owner's Tone Examples' (BELOW) exactly.
+           - **Emojis:** Use text emojis (^^, ㅠㅠ) and Tildes (~) naturally as seen in examples.
+           - **Endings:** Use soft endings like "~요", "~네요", "~답니다".
+           - **Length:** Keep it short and friendly.
         """
 
-    cust_name = state.get("customer_name", "").strip()
-    if not cust_name: cust_name = "고객"
-
-    store_name = state.get("store_name", "").strip()
-    store_identity = f"당신은 '{store_name}' 사장님입니다." if store_name else "당신은 식당 사장님입니다."
-
-    # [FIX] 프롬프트 대폭 수정: 스타일 모방 강제
+    # ------------------------------------------------------------------
+    # 3. 시스템 프롬프트 조립
+    # ------------------------------------------------------------------
     system_prompt = f"""
-    {store_identity}
+    You are the owner of the restaurant '{state.get("store_name", "우리 가게")}'.
+    Reply to the customer's review.
 
-    너의 임무는 아래 [추천 템플릿]의 말투를 **'완벽하게 복제'**하여 답글을 다는 것이다.
+    [Sources]
+    - **Content Source:** Use 'Matched Menu Info' (BELOW) for the solution.
+    - **Style Source:** Follow the 'Tone & Manner' instructions below.
 
-    [대상 정보]
-    - 고객명: {cust_name}
-    - 감정: {state['sentiment']}
+    [Context Information]
+    1. **Customer Name:** {state['customer_name']}
+    2. **Matched Menu Info:** {context_menus}
+    3. **Owner's Tone Examples:** {context_templates}
 
-    [강력한 스타일 가이드 - 반드시 지킬 것]
-    1. **길이 제한:** [추천 템플릿]과 비슷한 길이(1~3문장)로 짧게 작성해. 절대 길게 쓰지 마.
-    2. **말투 복제:** 템플릿에 있는 문체, 종결어미, 이모티콘(예: ^^, ㅠㅠ, !) 사용 빈도를 그대로 따라해.
-    3. **미사여구 금지:** "따뜻한 칭찬", "보람을 느낍니다" 같은 느끼하고 오글거리는 AI식 표현 절대 금지.
-    4. **형식:** 서론-본론-결론 형식을 버리고, 템플릿처럼 용건만 간단히 말해.
-    5. **가게 이름:** 자연스러울 때만 짧게 언급해.
+    [Critical Instructions]
+    1. **Smart Addressing (CRITICAL):**
+       - **NEVER output "OO님" literally.** You must replace "OO" with the actual customer name.
+       - **Step 1:** Look at [Context Information] > 'Customer Name'.
+       - **Step 2:** Decide how to call them:
+         - **Case A (Normal Name/ID):** If it looks like a name (e.g., "홍길동", "minji99"), say **"{state['customer_name']}님!"** or **"{state['customer_name']}님 안녕하세요 ^^"**.
+         - **Case B (Awkward/Long Nickname):** If it is a phrase or awkward (e.g., "매일먹는사람", "맛있으면짖는개"), **IGNORE the name** and use **"고객님"** or **"단골님"**.
+       - **Example:** - Name="이정우" -> "**이정우님** 안녕하세요 ^^" (Good)
+         - Name="매일먹는사람" -> "**단골님** 안녕하세요 ^^" (Good)
+         - Name="매일먹는사람" -> "매일먹는사람님 안녕하세요" (BAD)
 
-    {feedback_instruction}
+    2. **PRIORITY 1: The Solution (From Menu Info)**
+       - Does 'Matched Menu Info' contain a specific tip?
+       - **Relevance Check:** Does the customer's review mention this menu? Or is this menu selected?
+       - **IF RELEVANT:** You MUST write the tip (e.g., "전자레인지 30초").
+       - **IF IRRELEVANT:** Do NOT mention it.
 
-    [추천 템플릿 (이 말투를 그대로 베껴라)]:
-    {context_templates}
+    {tone_instructions}
 
-    [메뉴 정보 (필요시 참고)]:
-    {context_menus}
+    4. **Structure:**
+       - **Greeting:** Smart Address + Hello.
+       - **Empathy:** Brief thanks or apology.
+       - **Closing:** Friendly closing.
+
+    5. **User Feedback:**
+       {state.get('user_feedback', 'None')}
     """
 
     user_prompt = f"고객 리뷰: {state['review_text']}"
 
+    # ------------------------------------------------------------------
+    # 4. 모델 호출 및 결과 반환
+    # ------------------------------------------------------------------
     res = llm.invoke([
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_prompt)
     ])
 
-    return {"final_reply": res.content}
+    return {
+        "final_reply": res.content,
+        "sentiment": state.get("sentiment", "unknown")
+    }
 
 
 tone_map = {

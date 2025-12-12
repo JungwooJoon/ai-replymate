@@ -1,7 +1,9 @@
 import streamlit as st
 import uuid
+import pandas as pd
 from src.data_manager import save_drafts, load_drafts, load_json_data
 from src.ui.card_views import render_list_view, render_grid_view, open_reply_modal
+from src.workflow import build_graph
 
 
 def render_review_cards_tab(selected_tone, store_name):
@@ -29,7 +31,7 @@ def render_review_cards_tab(selected_tone, store_name):
                 })
         st.session_state.active_reviews = active_drafts + converted_history[::-1]
 
-        # [다른 탭 간섭 방지]
+    # [다른 탭 간섭 방지]
     other_tab_keys = ["dashboard_filter", "dash_sent", "dash_period", "menu_editor", "simple_training_form"]
     for key in other_tab_keys:
         if key in st.session_state:
@@ -86,6 +88,71 @@ def render_review_cards_tab(selected_tone, store_name):
             # 현재 뷰 모드에 따라 결정하려면 아래와 같이 설정
             st.session_state['target_view_mode'] = 'desktop' if view_mode == "리스트" else "mobile"
             st.rerun()
+
+    # --------------------------------------------------------------------------
+    # ⚡ [NEW] 일괄 생성 기능 (Batch Generation) - 필터 UI 위쪽 배치
+    # --------------------------------------------------------------------------
+    reviews = st.session_state.active_reviews
+    pending_reviews = [r for r in reviews if r.get("status") == "draft"]
+    pending_count = len(pending_reviews)
+
+    if pending_count > 0:
+        st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
+        col_batch, col_dummy = st.columns([2, 3])
+        with col_batch:
+            btn_label = f"대기 중인 {pending_count}건 일괄 생성하기"
+            if st.button(btn_label, type="primary", use_container_width=True, icon=":material/auto_awesome:",
+                         key="batch_gen_btn"):
+
+                # 진행률 바 생성
+                progress_text = "AI가 답글을 작성 중입니다... (잠시만 기다려주세요)"
+                my_bar = st.progress(0, text=progress_text)
+
+                # LangGraph 앱 빌드 (한 번만 빌드해서 재사용)
+                app = build_graph()
+
+                # 반복문으로 순차 처리
+                for i, review in enumerate(pending_reviews):
+                    try:
+                        # 1. 워크플로우 실행
+                        result = app.invoke({
+                            "review_text": review["text"],
+                            "customer_name": review.get("customer_name", ""),
+                            "manual_menu": review.get("menu_name", ""),
+                            "store_name": store_name,
+                            "tone": selected_tone,
+                            "user_feedback": None
+                        })
+
+                        # 2. 결과 반영 (원본 리스트 업데이트)
+                        # ID로 원본 리스트의 해당 항목 찾아서 업데이트
+                        for target in st.session_state.active_reviews:
+                            if target['id'] == review['id']:
+                                target["reply"] = result["final_reply"]
+                                target["sentiment"] = result["sentiment"]
+                                target["status"] = "generated"  # 상태 변경
+
+                                # 메뉴명이 자동 추출되었다면 업데이트
+                                extracted = result.get("extracted_menu")
+                                if not target["menu_name"] and extracted and extracted != "null":
+                                    target["menu_name"] = extracted
+                                break
+
+                        # 3. 중간 저장 (안전장치)
+                        save_drafts(st.session_state.active_reviews)
+
+                        # 4. 진행률 업데이트
+                        percent_complete = int(((i + 1) / pending_count) * 100)
+                        customer_display = review.get('customer_name') or '고객'
+                        my_bar.progress(percent_complete,
+                                        text=f"[{i + 1}/{pending_count}] {customer_display}님 답글 완료! ✨")
+
+                    except Exception as e:
+                        st.error(f"오류 발생 ({review.get('customer_name', '알 수 없음')}): {e}")
+
+                my_bar.empty()  # 완료 후 진행바 제거
+                st.success("모든 답글 생성이 완료되었습니다! 내용을 확인하고 저장해주세요.")
+                st.rerun()  # 화면 갱신
 
     # 3. 필터 UI (기존 동일)
     with st.expander("필터 및 검색 옵션", expanded=False, icon=":material/filter_list:"):
